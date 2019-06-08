@@ -2,10 +2,14 @@
   "name": "offline-audio-transfer",
   "version": "0.1.0",
   "private": true,
+  "homepage": ".",
+  "license": "MIT",
   "dependencies": {
+    "chirpsdk": "^3.0.3",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
-    "react-scripts": "3.0.1"
+    "react-scripts": "3.0.1",
+    "simple-crypto-js": "^2.0.2"
   },
   "scripts": {
     "start": "react-scripts start",

@@ -1,0 +1,81 @@
+.App {
+  text-align: center;
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 1.5vmin);
+  color: white;
+}
+
+.SendButton {
+  margin-top: 5px;
+  width: 150px;
+  height: 30px;
+  font-size: 0.6em;
+  padding: 2px 5px;
+}
+
+.DecryptButton {
+  margin-top: 5px;
+  width: 150px;
+  height: 30px;
+  font-size: 0.6em;
+  padding: 2px 5px;
+}
+
+.ResetButton {
+  margin-left: 20px;
+  margin-top: 5px;
+  width: 150px;
+  height: 30px;
+  font-size: 0.6em;
+  padding: 2px 5px;
+}
+
+.MsgBoxContainer {
+  width: 400px;
+}
+
+.IntroContainer {
+  width: 400px;
+}
+
+.MsgBox {
+  margin-top: 5px;
+  font-size: 0.7em;
+  width: 400px;
+  height: 24px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.Result {
+  margin-top: 20px;
+  font-size: 0.7em;
+  width: 400px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.Footer {
+  position:absolute;
+   bottom:0;
+   padding-top: 15px;
+   width:100%;
+   height:40px;   /* Height of the footer */
+   background:#363c47;
+   font-size: calc(10px + 0.6vmin);
+}
+
+a {
+  color: #61dafb;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #52bbd8;
+  text-decoration: none;
+}
