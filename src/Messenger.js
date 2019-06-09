@@ -14,18 +14,31 @@ class Messenger extends React.Component {
       receivedData: new Uint8Array([]), //received in Uint8Array format
       disabled: true,
       decryptDisabled: true,
-      resultType: "ascii"
+      downloadDisabled: true,
+      resultType: "ascii",
+      message: "",
+      sendButtonTxt: "SEND 1/1"
     }
-    this.payloadChunks = null
+    this.payloadChunks = []
     this.payloadCount = 0
-    this.sendButtonTxt = "SEND PART 1"
+    this.payloadCountMax = 1
     this.shouldReset = true
+    this.maxFileSize = 5000
 
     //Bindings
-    this.handleChange = this.handleChange.bind(this);
-    this.handleSubmit = this.handleSubmit.bind(this);
+    this.handleFileSelect = this.handleFileSelect.bind(this)
+    this.handleMessageChange = this.handleMessageChange.bind(this)
+    this.downloadByteArray = this.downloadByteArray.bind(this)
 
     this.concatTypedArray = require('concat-typed-array');
+
+    this.audioError = `Failed to open web audio stream.
+    This may happen if your browser doesn't support Web Audio or have a mic and speaker.`
+  }
+
+  componentDidMount() {
+    //Init stuff here
+    if (!'WebAssembly' in window) window.alert('WebAssembly is not supported in this browser')
   }
 
   toAscii(payload) {
@@ -48,8 +61,8 @@ class Messenger extends React.Component {
     var tempArray = [];
 
     for (index = 0; index < arrayLength; index += chunk_size) {
-        var myChunk = myArray.slice(index, index+chunk_size);
-        tempArray.push(myChunk);
+      var myChunk = myArray.slice(index, index+chunk_size);
+      tempArray.push(myChunk);
     }
 
     return tempArray;
@@ -65,56 +78,144 @@ class Messenger extends React.Component {
     }
   }
 
-  //Check if a string is pure hex
-  checkIfHex(inputString) {
-    var re = /[0-9A-Fa-f]{6}/g;
-
-    if(re.test(inputString)) {
-      re.lastIndex = 0;
-      return true
-    } else {
-      re.lastIndex = 0;
-      return false
+  //Check if all chars in a string is pure hex (not currently used)
+  checkIfHex(str) {
+    const regexp = /^[0-9a-fA-F]+$/
+    for (var i = 0; i < str.length; i++) {
+      if (!regexp.test(str.charAt(i)))
+        {
+          return false
+        }
     }
+    return true
   }
 
-  //Handle radio button change
-  handleChange(event) {
-    this.setState({
-      resultType: event.target.value
-    });
+  handleMessageChange(msg) {
+    const key = document.getElementById('psw_input').value
 
-    var result = ""
-    const data = this.state.receivedData
-    //Message is ascii encoded
-    if (event.target.value === "ascii") {
-      result = this.toAscii(data)
+    this.setState({ message: msg })
 
+    //Encrypt message if key is given
+    if (key !== "") {
+      var simpleCrypto = new SimpleCrypto(key)
+      msg = simpleCrypto.encrypt(msg)
     }
-    //Message is hex encoded
-    else if (event.target.value === "hex") {
-      console.log("Data:"+data)
-      const toHexString = data =>
-      data.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
-      result = toHexString(data)
+
+    if (msg !== "") {
+      this.setState({ disabled: false })
     }
+    else {
+      this.setState({ disabled: true })
+    }
+
+    this.payloadCountMax = Math.ceil(msg.length / 32)
+    if (this.payloadCountMax === 0) {
+      this.payloadCountMax = 1
+    }
+
     this.setState({
-      received: result
+      sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
     })
   }
 
-  //Disable default radio button behaviour
-  handleSubmit(event) {
-    event.preventDefault();
+  handleFileSelect(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    const scope = this
+
+    var files = evt.dataTransfer.files; // FileList object.
+
+    var reader = new FileReader();
+    reader.onload = function(theFile) {
+      const dataString = reader.result
+      if (dataString !== "") {
+        scope.setState({
+          message: dataString,
+          disabled: false
+        })
+        scope.handleMessageChange(dataString)
+      }
+    }
+
+    //Read file (only if below max file size)
+    const size = files[0].size
+    if (size <= this.maxFileSize) {
+      reader.readAsBinaryString(files[0])
+    }
+    else {
+      alert("Max file size allowed: 5 KB")
+    }
   }
 
+  handleDragOver(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+  }
+
+  destroyClickedElement(event)
+  {
+    document.body.removeChild(event.target);
+  }
+
+  downloadByteArray(fileName, bytes) {
+    //Try get the file type from magic numbers
+    const hex = bytes.join('').toUpperCase()
+    let type = this.getMimetype(hex)
+    console.log(type)
+
+    var blob = new Blob([bytes], {type: type})
+
+    var downloadLink = document.createElement("a")
+    downloadLink.download = fileName
+    downloadLink.innerHTML = "Download File"
+    if (window.webkitURL != null)
+    {
+        // Chrome allows the link to be clicked
+        // without actually adding it to the DOM.
+        downloadLink.href = window.webkitURL.createObjectURL(blob)
+    }
+    else
+    {
+        // Firefox requires the link to be added to the DOM
+        // before it can be clicked.
+        downloadLink.href = window.URL.createObjectURL(blob)
+        downloadLink.onclick = this.destroyClickedElement
+        downloadLink.style.display = "none"
+        document.body.appendChild(downloadLink)
+    }
+
+    downloadLink.click();
+  }
+
+  getMimetype(signature) {
+    switch (signature) {
+      case '89504E47':
+          return 'image/png'
+      case '47494638':
+          return 'image/gif'
+      case '25504446':
+          return 'application/pdf'
+      case 'FFD8FFDB':
+      case 'FFD8FFE0':
+          return 'image/jpeg'
+      case '504B0304':
+          return 'application/zip'
+      default:
+          return 'text/plain'
+    }
+  }
+
+/*
   async startSDK() {
     this.sdk = await Chirp({
       key: 'b2c2e7ed5Acebf8842C1f3F5F',
       onSending: data => {
         console.log("Sending")
-        this.sendButtonTxt = "Sending..."
-        this.setState({ disabled: true })
+        this.setState({
+          disabled: true,
+          sendButtonTxt: "Sending..."
+        })
       },
       onSent: data => {
         console.log("Data sent")
@@ -125,35 +226,28 @@ class Messenger extends React.Component {
           //document.getElementById("sendButton").click();
           this.payloadCount = 0
         }
-        this.sendButtonTxt = "SEND PART "+this.payloadCount+1
-        this.setState({ disabled: false })
+        this.setState({
+          disabled: false,
+          sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
+        })
       },
       onReceiving: () => {
-        this.sendButtonTxt = "Incoming..."
+        console.log("Receiving...")
         this.payloadCount = 0 //Reset any sending parts
         this.setState({
-          //received: 'listening...',
-          disabled: true
+          disabled: true,
+          sendButtonTxt: "Incoming..."
         })
       },
       onReceived: data => {
-        this.sendButtonTxt = "SEND PART 1"
+        console.log("Data received")
+        this.setState({
+          sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
+        })
         if (data.length > 0) {
           var result = ""
 
-          //Message is ascii encoded
-          if (this.state.resultType === "ascii") {
-            result = this.toAscii(data)
-          }
-          //Message is hex encoded
-          else if (this.state.resultType === "hex") {
-            const toHexString = data =>
-            data.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
-            result = toHexString(data)
-          }
-          console.log("Data:"+data)
-          console.log("Ascii data: "+this.toAscii(data))
-          console.log("Hex data: "+result)
+          result = new TextDecoder('utf-8').decode(data)
 
           if (this.shouldReset) {
             //Reset textarea
@@ -179,10 +273,11 @@ class Messenger extends React.Component {
           else {
             this.setState({ decryptDisabled: true })
           }
-
-        } else {
+          this.setState({ downloadDisabled: false })
+        }
+        else {
           this.setState({
-            received: `I didn't hear that. Try turning the volume up?`,
+            received: "Missed data. Try increase the volume.",
             disabled: false
           })
           this.shouldReset = true
@@ -190,6 +285,91 @@ class Messenger extends React.Component {
       }
     })
     this.setState({ started: true })
+  }
+  */
+
+  startSDK() {
+    Chirp({
+      key: 'b2c2e7ed5Acebf8842C1f3F5F',
+      onSending: data => {
+        console.log("Sending")
+        this.setState({
+          disabled: true,
+          sendButtonTxt: "Sending..."
+        })
+      },
+      onSent: data => {
+        console.log("Data sent")
+        //Check if there is more data to send
+        this.payloadCount++
+        if (this.payloadCount >= this.payloadChunks.length) {
+          //this.sendPayload(this.payloadChunks[this.payloadCount])
+          //document.getElementById("sendButton").click();
+          this.payloadCount = 0
+        }
+        this.setState({
+          disabled: false,
+          sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
+        })
+      },
+      onReceiving: () => {
+        console.log("Receiving...")
+        this.payloadCount = 0 //Reset any sending parts
+        this.setState({
+          disabled: true,
+          sendButtonTxt: "Incoming..."
+        })
+      },
+      onReceived: data => {
+        console.log("Data received")
+        this.setState({
+          sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
+        })
+        if (data.length > 0) {
+          var result = ""
+
+          result = new TextDecoder('utf-8').decode(data)
+
+          if (this.shouldReset) {
+            //Reset textarea
+            this.setState({
+              received: "",
+              receivedData: new Uint8Array([]),
+            })
+            this.shouldReset = false
+          }
+
+          this.setState({
+            //receivedData: this.state.receivedData.concat(data), //Save raw data (append to existing array)
+            receivedData: this.concatTypedArray(Uint8Array,this.state.receivedData,data),
+            received: this.state.received+result,
+            disabled: false,
+          })
+
+          //Enable decrypt button
+          const key = document.getElementById('psw_input').value
+          if (key !== "") {
+            this.setState({ decryptDisabled: false })
+          }
+          else {
+            this.setState({ decryptDisabled: true })
+          }
+          this.setState({ downloadDisabled: false })
+        }
+        else {
+          this.setState({
+            received: "Missed data. Try increase the volume.",
+            disabled: false
+          })
+          this.shouldReset = true
+        }
+      }
+    }).then(sdk => {
+      this.sdk = sdk
+      this.setState({ started: true })
+    }).catch(err => console.error(err) && err.message.includes('WebAssembly') ?
+          window.alert(err) : window.alert(this.audioError)
+        )
   }
 
   render() {
@@ -199,14 +379,14 @@ class Messenger extends React.Component {
 
         {this.state.started ? (
           <div>
-            <button onClick={this.collapse} className="IntroButton">How to use</button>
+            <button onClick={this.collapse} className="IntroButton">HOW TO</button>
             <div className="collapse-content">
                 <strong>No message data is shared but feel free to download site and use offline.<br /></strong>
                 <ol>
                     <li>Send message from one device to another using speaker and microphone.</li>
                     <li>If they are far apart you can use a recorder for example a phone app.</li>
                     <li>Use optional encryption to avoid anyone to intercept the audio.</li>
-                    <li>Each (non encrypted) part is 32 chars (or 64 if hex) and split automatically.</li>
+                    <li>Each (non encrypted) part is 32 chars and split automatically.</li>
                     <li>Use same encryption key on the receiving end.</li>
                 </ol>
               <br />
@@ -217,65 +397,75 @@ class Messenger extends React.Component {
                 type="text"
                 id="message_input"
                 placeholder="Enter message"
-                onChange={() => {
-                  const msg = document.getElementById('message_input').value
-                  if (msg !== "") {
-                    this.setState({ disabled: false })
-                  }
-                  else {
-                    this.setState({ disabled: true })
-                  }
+                value={this.state.message}
+                onChange={(event) => {
+                  this.handleMessageChange(event.target.value)
                 }}
               />
+
+              <div
+                id="drop_zone"
+                onDragOver={this.handleDragOver}
+                onDrop={this.handleFileSelect}>
+                ...or drop a file here
+              </div>
 
               <input className="MsgBox"
                 type="text"
                 id="psw_input"
                 placeholder="Encryption key (optional)"
-                onChange={() => {
-                  const key = document.getElementById('psw_input').value
+                onChange={(event) => {
+                  const key = event.target.value
                   const result = document.getElementById('resultTxt').value
+                  var msg = document.getElementById('message_input').value
                   if (key !== "" && result !== "") {
                     this.setState({ decryptDisabled: false })
                   }
                   else {
                     this.setState({ decryptDisabled: true })
                   }
+
+                  //Encrypt message if key is given
+                  if (key !== "") {
+                    var simpleCrypto = new SimpleCrypto(key)
+                    msg = simpleCrypto.encrypt(msg)
+                  }
+
+                  if (msg !== "") {
+                    this.setState({ disabled: false })
+                    this.payloadCountMax = Math.ceil(msg.length / 32)
+
+                    this.setState({
+                      sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
+                    })
+                  }
+                  else {
+                    this.setState({ disabled: true })
+                  }
                 }}
               />
             </div>
 
             {this.state.disabled ? (
-              <button id="sendButton" className="SendButton" disabled>{this.sendButtonTxt}</button>
+              <button id="sendButton" className="SendButton" disabled>{this.state.sendButtonTxt}</button>
               ) : (
               <button id="sendButton" className="SendButton"
                 onClick={() => {
                   if (this.payloadCount === 0 || this.payloadCount >= this.payloadChunks.length) {
-                    const input = document.getElementById('message_input').value
+                    var message = this.state.message
                     const key = document.getElementById('psw_input').value
-                    var message = input
-                    var payload = []
+
+                    var payload = new Uint8Array(["Unknown"])
                     //Encrypt message if key is given
                     if (key !== "") {
                       var simpleCrypto = new SimpleCrypto(key)
-                      message = simpleCrypto.encrypt(input)
+                      message = simpleCrypto.encrypt(message)
                     }
-                    //If not encrypting, check if hex because it will reduce the byte length by half
-                    else {
-                      if (this.checkIfHex(message)) {
-                        //Convert hexstring to byteArray
-                        const fromHexString = message =>
-                        new Uint8Array(input.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-                        payload = fromHexString(message)
-                        console.log(payload)
-                      }
-                      else {
-                        payload = new TextEncoder('utf-8').encode(message)
-                      }
-                    }
+                    payload = new TextEncoder('utf-8').encode(message)
 
                     //Divide payload into several 32 byte payloads
                     this.payloadChunks = this.chunkArray(payload, 32)
+                    this.payloadCountMax = this.payloadChunks.length
 
                     this.sdk.send(this.payloadChunks[0])
                   }
@@ -283,7 +473,7 @@ class Messenger extends React.Component {
                     this.sdk.send(this.payloadChunks[this.payloadCount])
                   }
                 }}
-              >SEND PART {this.payloadCount+1}</button>
+              >{this.state.sendButtonTxt}</button>
               )
             }
 
@@ -291,66 +481,65 @@ class Messenger extends React.Component {
               {<textarea id="resultTxt" className="Result" rows="10" value={this.state.received} placeholder="Waiting on message..." readOnly></textarea>}
             </div>
 
-            <div className="ResultType">
-              <label>
-                <input
-                  type="radio"
-                  value="ascii"
-                  checked={this.state.resultType === "ascii"}
-                  onChange={this.handleChange}
-                />
-                Ascii
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  value="hex"
-                  checked={this.state.resultType === "hex"}
-                  onChange={this.handleChange}
-                />
-                Hex
-              </label>
-            </div>
-
-            {this.state.decryptDisabled ? (
-              <button id="decryptButton" className="DecryptButton" disabled>DECRYPT</button>
-              ) : (
-                <button id="decryptButton" className="DecryptButton"
-                  onClick={() => {
-                      //Decrypt message
-                      var result = document.getElementById("resultTxt").value
-                      console.log(result)
-                      const key = document.getElementById('psw_input')
-                      var simpleCrypto = new SimpleCrypto(key.value)
-                      var decrypted = simpleCrypto.decrypt(result)
-                      console.log(decrypted)
-                      document.getElementById("resultTxt").value = decrypted
+            <div>
+              {this.state.decryptDisabled ? (
+                <button id="decryptButton" className="DecryptButton" disabled>DECRYPT</button>
+                ) : (
+                  <button id="decryptButton" className="DecryptButton"
+                    onClick={() => {
+                        //Decrypt message
+                        var result = document.getElementById("resultTxt").value
+                        const key = document.getElementById('psw_input')
+                        var simpleCrypto = new SimpleCrypto(key.value)
+                        var decrypted = simpleCrypto.decrypt(result)
+                        document.getElementById("resultTxt").value = decrypted
                     }
                   }
                 >DECRYPT</button>
-              )
-            }
-
-            <button id="resetButton" className="ResetButton"
-              onClick={() => {
-                //Reset textarea
-                this.setState({
-                  received: "",
-                  receivedData: new Uint8Array([]),
-                })
-                }
+                )
               }
-            >RESET</button>
 
+              <button id="resetButton" className="ResetButton"
+                onClick={() => {
+                  //Reset textarea
+                  this.setState({
+                    received: "",
+                    receivedData: new Uint8Array([]),
+                    message: "",
+                    sendButtonTxt: "SEND 1/1",
+                    decryptDisabled: true,
+                    downloadDisabled: true,
+                  })
+                  this.payloadCount = 0
+                  this.payloadCountMax = 1
+                  this.payloadChunks = []
+                  }
+                }
+              >RESET</button>
+
+              {this.state.downloadDisabled ? (
+                <button id="downloadButton" className="DownloadButton" disabled>DOWNLOAD</button>
+                ) : (
+                  <button id="downloadButton" className="DownloadButton"
+                    onClick={() => {
+                      //Download the bytes shown in text textarea
+                      this.downloadByteArray("test.txt", this.state.receivedData)
+                    }
+                  }
+                >DOWNLOAD</button>
+                )
+              }
+            </div>
           </div>
           ) : (
-            <button className="SendButton"
+            <button className="StartButton"
               onClick={() => {
                 this.startSDK()
               }}
             >START</button>
           )
         }
+        <div className = "extra"></div>
         <footer className="Footer"><span>Offline version can be downloaded at </span><a href="https://github.com">Github</a></footer>
       </div>
     )

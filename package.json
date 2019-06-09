@@ -7,14 +7,18 @@
   "dependencies": {
     "chirpsdk": "^3.0.3",
     "concat-typed-array": "^1.0.2",
+    "gulp": "^4.0.2",
+    "gulp-zip": "^5.0.0",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "react-scripts": "3.0.1",
     "simple-crypto-js": "^2.0.2"
   },
   "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "react-scripts build && gulp zip",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -32,5 +36,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "gh-pages": "^2.0.1"
   }
 }

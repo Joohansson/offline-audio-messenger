@@ -10,6 +10,14 @@
   color: white;
 }
 
+.StartButton {
+  margin-top: 5px;
+  width: 200px;
+  height: 40px;
+  font-size: 0.7em;
+  padding: 2px 5px;
+}
+
 .IntroButton {
   margin-top: 0px;
   margin-bottom: 20px;
@@ -29,16 +37,25 @@
 
 .DecryptButton {
   margin-top: 5px;
-  width: 150px;
+  width: 120px;
   height: 30px;
   font-size: 0.6em;
   padding: 2px 5px;
 }
 
 .ResetButton {
-  margin-left: 20px;
+  margin-left: 26px;
   margin-top: 5px;
-  width: 150px;
+  width: 120px;
+  height: 30px;
+  font-size: 0.6em;
+  padding: 2px 5px;
+}
+
+.DownloadButton {
+  margin-left: 26px;
+  margin-top: 5px;
+  width: 120px;
   height: 30px;
   font-size: 0.6em;
   padding: 2px 5px;
@@ -63,6 +80,7 @@
 .collapse-content ol {
   text-align: left;
   line-height: 1.2em;
+  margin-left: 30px;
 }
 
 .MsgBox {
@@ -82,23 +100,18 @@
   padding-right: 5px;
 }
 
-.ResultType {
-  font-size: 0.6em;
-  margin-left: 30px;
-}
-
-.ResultType label  {
-  margin-right: 30px;
-}
-
 .Footer {
-  position:absolute;
-   bottom:0;
-   padding-top: 15px;
-   width:100%;
-   height:40px;   /* Height of the footer */
-   background:#363c47;
-   font-size: calc(10px + 0.6vmin);
+  position: fixed;
+  padding-top: 14px;
+  bottom: 0;
+  width: 100%;
+  background: #363c47;
+  font-size: calc(10px + 0.6vmin);
+  height: 35px;
+}
+
+.extra {
+  height: 60px;
 }
 
 a {
@@ -112,12 +125,11 @@ a:hover {
 }
 
 #drop_zone {
-    border: 2px dashed #bbb;
-    -moz-border-radius: 5px;
-    -webkit-border-radius: 5px;
-    border-radius: 5px;
-    padding: 25px;
-    text-align: center;
-    font: 20pt bold 'Vollkorn';
-    color: #bbb;
+  border: 2px dashed #bbb;
+  padding: 5px;
+  color: #bbb;
+  width: 400px;
+  margin-top: 5px;
+  margin-left: auto;
+  margin-right: auto;
 }
