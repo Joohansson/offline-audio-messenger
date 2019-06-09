@@ -18,6 +18,15 @@ Disconnect your Internet connection, extract the zip and open index.html in an s
 
 Offline mode may not work in every browser and OS. Tested with Firefox and Chrome in Ubuntu.
 
+## How to use
+
+1. Run the site on two PCs (or mobiles). Speaker and mic need to be configured (or headset). You can even run two tabs on same machine for testing.
+2. Type a message or drop a file (text file preferred but any file should work in theory, though limited to 5KB for practical reasons.)
+3. If the message is split in several parts you will need to hit the send button until the whole payload is completed. The receiving end will append the message and you can encrypt it when finished (using the same encryption key).
+4. The result can be copied or downloaded.
+
+Not the fastest method in the world with a transfer speed of 7.14 bytes/second. An 8GB HD movie would take 35 years!
+
 ## Developer instructions
 
 ### Prepare for build (Ubuntu example)`
