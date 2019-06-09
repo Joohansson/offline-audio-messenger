@@ -10,6 +10,15 @@
   color: white;
 }
 
+.IntroButton {
+  margin-top: 0px;
+  margin-bottom: 20px;
+  width: 150px;
+  height: 30px;
+  font-size: 0.6em;
+  padding: 2px 5px;
+}
+
 .SendButton {
   margin-top: 5px;
   width: 150px;
@@ -36,11 +45,24 @@
 }
 
 .MsgBoxContainer {
-  width: 400px;
+  width: 600px;
 }
 
-.IntroContainer {
-  width: 400px;
+/* Collapsible div */
+.collapse-content {
+  width: 600px;
+  font-size: 0.6em;
+  padding: 0 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+  text-align: center;
+  margin: 0 auto;
+}
+
+.collapse-content ol {
+  text-align: left;
+  line-height: 1.2em;
 }
 
 .MsgBox {
@@ -53,11 +75,20 @@
 }
 
 .Result {
-  margin-top: 20px;
+  margin-top: 40px;
   font-size: 0.7em;
   width: 400px;
   padding-left: 5px;
   padding-right: 5px;
+}
+
+.ResultType {
+  font-size: 0.6em;
+  margin-left: 30px;
+}
+
+.ResultType label  {
+  margin-right: 30px;
 }
 
 .Footer {
@@ -78,4 +109,15 @@ a {
 a:hover {
   color: #52bbd8;
   text-decoration: none;
+}
+
+#drop_zone {
+    border: 2px dashed #bbb;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    border-radius: 5px;
+    padding: 25px;
+    text-align: center;
+    font: 20pt bold 'Vollkorn';
+    color: #bbb;
 }

@@ -6,6 +6,7 @@
   "license": "MIT",
   "dependencies": {
     "chirpsdk": "^3.0.3",
+    "concat-typed-array": "^1.0.2",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "react-scripts": "3.0.1",
