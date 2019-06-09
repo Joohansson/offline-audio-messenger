@@ -2,8 +2,11 @@
 # Offline Audio Messenger
 
 Send messages or files between devices using an encrypted audio transfer.
+For example when using an air-gapped (offline) computer and need to transfer keys for offline signing of a cryptocurrency transaction. The message does not touch the Internet.
 
-[Public Site](https://example.com)
+Either run the site online below, unplug the Internet before sending anything or download and run locally (no web server is needed)
+
+[Public Site](https://joohansson.github.io/offline-audio-messenger/)
 
 ## Install and run application locally
 
