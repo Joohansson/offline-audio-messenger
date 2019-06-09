@@ -18,6 +18,7 @@ Disconnect your Internet connection, extract the zip and open index.html in an s
 
 * Offline mode may not work in every browser and OS. Tested with Firefox and Chrome in Ubuntu.
 * Encryption used: https://www.npmjs.com/package/simple-crypto-js
+* Audio encoding: https://developers.chirp.io/
 
 ## How to use
 
