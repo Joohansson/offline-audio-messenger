@@ -1,3 +1,4 @@
+/* Joohansson 2019 */
 import React from 'react';
 import { Chirp } from 'chirpsdk'
 import SimpleCrypto from "simple-crypto-js";
@@ -10,20 +11,19 @@ class Messenger extends React.Component {
     this.sdk = null
     this.state = {
       started: false,
-      received: "",
+      received: "", //received data as string
       receivedData: new Uint8Array([]), //received in Uint8Array format
-      disabled: true,
-      decryptDisabled: true,
-      downloadDisabled: true,
-      resultType: "ascii",
-      message: "",
-      sendButtonTxt: "SEND 1/1"
+      disabled: true, //send button disabled
+      decryptDisabled: true, //decrypt button disabled
+      downloadDisabled: true, //download button disabled
+      message: "", //messeage to be sent
+      sendButtonTxt: "SEND 1/1" //label of send button
     }
-    this.payloadChunks = []
-    this.payloadCount = 0
-    this.payloadCountMax = 1
+    this.payloadChunks = [] //send payload divided into parts
+    this.payloadCount = 0 //current payload
+    this.payloadCountMax = 1 //maxium parts to be sent
     this.shouldReset = true
-    this.maxFileSize = 5000
+    this.maxFileSize = 5000 //max bytes to be dropped
 
     //Bindings
     this.handleFileSelect = this.handleFileSelect.bind(this)
@@ -38,15 +38,7 @@ class Messenger extends React.Component {
 
   componentDidMount() {
     //Init stuff here
-    if (!'WebAssembly' in window) window.alert('WebAssembly is not supported in this browser')
-  }
-
-  toAscii(payload) {
-    let str = ''
-    for (let i = 0; i < payload.length; i++) {
-      str += String.fromCharCode(payload[i])
-    }
-    return str
+    if (!('WebAssembly' in window)) window.alert('WebAssembly is not supported in this browser')
   }
 
   /**
@@ -68,7 +60,7 @@ class Messenger extends React.Component {
     return tempArray;
   }
 
-  // Show/hide how to section
+  // Show/hide how-to section
   collapse() {
     var content = document.getElementsByClassName("collapse-content")[0];
     if (content.style.maxHeight){
@@ -78,7 +70,7 @@ class Messenger extends React.Component {
     }
   }
 
-  //Check if all chars in a string is pure hex (not currently used)
+  //Check if all chars in a string is pure hex (not currently used but would cut the payload by 50%)
   checkIfHex(str) {
     const regexp = /^[0-9a-fA-F]+$/
     for (var i = 0; i < str.length; i++) {
@@ -90,9 +82,9 @@ class Messenger extends React.Component {
     return true
   }
 
+  //When the message body is changed
   handleMessageChange(msg) {
     const key = document.getElementById('psw_input').value
-
     this.setState({ message: msg })
 
     //Encrypt message if key is given
@@ -108,22 +100,23 @@ class Messenger extends React.Component {
       this.setState({ disabled: true })
     }
 
+    //Update the button text based on payload length
     this.payloadCountMax = Math.ceil(msg.length / 32)
     if (this.payloadCountMax === 0) {
       this.payloadCountMax = 1
     }
-
     this.setState({
       sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
     })
   }
 
+  //When file is dropped
   handleFileSelect(evt) {
     evt.stopPropagation();
     evt.preventDefault();
     const scope = this
 
-    var files = evt.dataTransfer.files; // FileList object.
+    var files = evt.dataTransfer.files; // fileList object
 
     var reader = new FileReader();
     reader.onload = function(theFile) {
@@ -147,22 +140,24 @@ class Messenger extends React.Component {
     }
   }
 
+  //File drag over drop zone
   handleDragOver(evt) {
     evt.stopPropagation();
     evt.preventDefault();
     evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
   }
 
+  //For file download link
   destroyClickedElement(event)
   {
     document.body.removeChild(event.target);
   }
 
+  //Download a file from given filename and byteArray
   downloadByteArray(fileName, bytes) {
     //Try get the file type from magic numbers
     const hex = bytes.join('').toUpperCase()
     let type = this.getMimetype(hex)
-    console.log(type)
 
     var blob = new Blob([bytes], {type: type})
 
@@ -188,6 +183,7 @@ class Messenger extends React.Component {
     downloadLink.click();
   }
 
+  //Guess file type
   getMimetype(signature) {
     switch (signature) {
       case '89504E47':
@@ -206,88 +202,7 @@ class Messenger extends React.Component {
     }
   }
 
-/*
-  async startSDK() {
-    this.sdk = await Chirp({
-      key: 'b2c2e7ed5Acebf8842C1f3F5F',
-      onSending: data => {
-        console.log("Sending")
-        this.setState({
-          disabled: true,
-          sendButtonTxt: "Sending..."
-        })
-      },
-      onSent: data => {
-        console.log("Data sent")
-        //Check if there is more data to send
-        this.payloadCount++
-        if (this.payloadCount >= this.payloadChunks.length) {
-          //this.sendPayload(this.payloadChunks[this.payloadCount])
-          //document.getElementById("sendButton").click();
-          this.payloadCount = 0
-        }
-        this.setState({
-          disabled: false,
-          sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
-        })
-      },
-      onReceiving: () => {
-        console.log("Receiving...")
-        this.payloadCount = 0 //Reset any sending parts
-        this.setState({
-          disabled: true,
-          sendButtonTxt: "Incoming..."
-        })
-      },
-      onReceived: data => {
-        console.log("Data received")
-        this.setState({
-          sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
-        })
-        if (data.length > 0) {
-          var result = ""
-
-          result = new TextDecoder('utf-8').decode(data)
-
-          if (this.shouldReset) {
-            //Reset textarea
-            this.setState({
-              received: "",
-              receivedData: new Uint8Array([]),
-            })
-            this.shouldReset = false
-          }
-
-          this.setState({
-            //receivedData: this.state.receivedData.concat(data), //Save raw data (append to existing array)
-            receivedData: this.concatTypedArray(Uint8Array,this.state.receivedData,data),
-            received: this.state.received+result,
-            disabled: false,
-          })
-
-          //Enable decrypt button
-          const key = document.getElementById('psw_input').value
-          if (key !== "") {
-            this.setState({ decryptDisabled: false })
-          }
-          else {
-            this.setState({ decryptDisabled: true })
-          }
-          this.setState({ downloadDisabled: false })
-        }
-        else {
-          this.setState({
-            received: "Missed data. Try increase the volume.",
-            disabled: false
-          })
-          this.shouldReset = true
-        }
-      }
-    })
-    this.setState({ started: true })
-  }
-  */
-
+  //Initialize the Chirp SDK
   startSDK() {
     Chirp({
       key: 'b2c2e7ed5Acebf8842C1f3F5F',
@@ -303,9 +218,12 @@ class Messenger extends React.Component {
         //Check if there is more data to send
         this.payloadCount++
         if (this.payloadCount >= this.payloadChunks.length) {
-          //this.sendPayload(this.payloadChunks[this.payloadCount])
-          //document.getElementById("sendButton").click();
           this.payloadCount = 0
+        }
+        else {
+          //TODO: automatically send again (Breaks the event listeners for some reason)
+          //this.sendPayload(this.payloadChunks[this.payloadCount]) //example 1
+          //document.getElementById("sendButton").click(); //example 2
         }
         this.setState({
           disabled: false,
@@ -340,7 +258,6 @@ class Messenger extends React.Component {
           }
 
           this.setState({
-            //receivedData: this.state.receivedData.concat(data), //Save raw data (append to existing array)
             receivedData: this.concatTypedArray(Uint8Array,this.state.receivedData,data),
             received: this.state.received+result,
             disabled: false,
