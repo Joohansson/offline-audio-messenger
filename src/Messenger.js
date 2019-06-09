@@ -85,19 +85,20 @@ class Messenger extends React.Component {
   //When the message body is changed
   handleMessageChange(msg) {
     const key = document.getElementById('psw_input').value
+    const result = document.getElementById('resultTxt').value
     this.setState({ message: msg })
 
-    //Encrypt message if key is given
-    if (key !== "") {
-      var simpleCrypto = new SimpleCrypto(key)
-      msg = simpleCrypto.encrypt(msg)
-    }
-
-    if (msg !== "") {
-      this.setState({ disabled: false })
+    if (key !== "" && result !== "") {
+      this.setState({ decryptDisabled: false })
     }
     else {
-      this.setState({ disabled: true })
+      this.setState({ decryptDisabled: true })
+    }
+
+    //Encrypt message if key is given
+    if (key !== "" && msg !== "") {
+      var simpleCrypto = new SimpleCrypto(key)
+      msg = simpleCrypto.encrypt(msg)
     }
 
     //Update the button text based on payload length
@@ -105,6 +106,16 @@ class Messenger extends React.Component {
     if (this.payloadCountMax === 0) {
       this.payloadCountMax = 1
     }
+
+    if (msg !== "") {
+      this.setState({ disabled: false })
+    }
+    else {
+      this.setState({ disabled: true })
+      this.payloadCountMax = 1
+    }
+
+    this.payloadCount = 0
     this.setState({
       sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
     })
@@ -332,33 +343,8 @@ class Messenger extends React.Component {
                 id="psw_input"
                 placeholder="Encryption key (optional)"
                 onChange={(event) => {
-                  const key = event.target.value
-                  const result = document.getElementById('resultTxt').value
                   var msg = document.getElementById('message_input').value
-                  if (key !== "" && result !== "") {
-                    this.setState({ decryptDisabled: false })
-                  }
-                  else {
-                    this.setState({ decryptDisabled: true })
-                  }
-
-                  //Encrypt message if key is given
-                  if (key !== "") {
-                    var simpleCrypto = new SimpleCrypto(key)
-                    msg = simpleCrypto.encrypt(msg)
-                  }
-
-                  if (msg !== "") {
-                    this.setState({ disabled: false })
-                    this.payloadCountMax = Math.ceil(msg.length / 32)
-
-                    this.setState({
-                      sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
-                    })
-                  }
-                  else {
-                    this.setState({ disabled: true })
-                  }
+                  this.handleMessageChange(msg)
                 }}
               />
             </div>
@@ -374,11 +360,13 @@ class Messenger extends React.Component {
 
                     var payload = new Uint8Array(["Unknown"])
                     //Encrypt message if key is given
-                    if (key !== "") {
+                    if (key !== "" && message !== "") {
                       var simpleCrypto = new SimpleCrypto(key)
                       message = simpleCrypto.encrypt(message)
                     }
-                    payload = new TextEncoder('utf-8').encode(message)
+                    if (message !== "") {
+                      payload = new TextEncoder('utf-8').encode(message)
+                    }
 
                     //Divide payload into several 32 byte payloads
                     this.payloadChunks = this.chunkArray(payload, 32)
@@ -457,7 +445,7 @@ class Messenger extends React.Component {
           )
         }
         <div className = "extra"></div>
-        <footer className="Footer"><span>Offline version can be downloaded at </span><a href="https://github.com">Github</a></footer>
+        <footer className="Footer"><span>Offline version can be downloaded at </span><a href="https://github.com/Joohansson/offline-audio-messenger">Github</a></footer>
       </div>
     )
   }
