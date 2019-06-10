@@ -17,13 +17,14 @@ class Messenger extends React.Component {
       decryptDisabled: true, //decrypt button disabled
       downloadDisabled: true, //download button disabled
       message: "", //messeage to be sent
-      sendButtonTxt: "SEND 1/1" //label of send button
+      payload: new Uint8Array([]),
+      sendButtonTxt: "SEND 1/1", //label of send button
+      messageType: "file" //incoming message type
     }
     this.payloadChunks = [] //send payload divided into parts
     this.payloadCount = 0 //current payload
     this.payloadCountMax = 1 //maxium parts to be sent
-    this.shouldReset = true
-    this.maxFileSize = 5000 //max bytes to be dropped
+    this.maxFileSize = 100000 //max bytes to be dropped
 
     //Bindings
     this.handleFileSelect = this.handleFileSelect.bind(this)
@@ -82,36 +83,75 @@ class Messenger extends React.Component {
     return true
   }
 
-  //When the message body is changed
-  handleMessageChange(msg) {
+  toBase64(u8) {
+    var base64 = ""
+    try {
+      base64 = btoa(String.fromCharCode.apply(null, u8))
+    }
+    catch(error) {
+      console.error("Bad data. Could not make base64.")
+      return ""
+    }
+    return base64
+  }
+
+  fromBase64(str) {
+    var uint8
+    try {
+      uint8 = atob(str).split('').map(function (c) { return c.charCodeAt(0); })
+    }
+    catch(error) {
+      console.error("Bad data. Check received format.")
+      return new Uint8Array([])
+    }
+    return uint8
+  }
+
+  handleMessageChange(message) {
+    if (message !== this.state.message) {
+      this.setState({message: message})
+    }
+
+    console.log("Handle: "+message)
     const key = document.getElementById('psw_input').value
     const result = document.getElementById('resultTxt').value
-    this.setState({ message: msg })
 
-    if (key !== "" && result !== "") {
+    if (key.length > 0 && result.length > 0) {
       this.setState({ decryptDisabled: false })
     }
     else {
       this.setState({ decryptDisabled: true })
     }
 
+    var payload = new Uint8Array(["Unknown"])
+    var simpleCrypto = new SimpleCrypto(key)
+
+    //If file imported, convert to base64 because UTF8 is not enough for non-text files
+    if (this.state.payload.length > 0) {
+      payload = this.state.payload
+      message = this.toBase64(payload)
+    }
     //Encrypt message if key is given
-    if (key !== "" && msg !== "") {
-      var simpleCrypto = new SimpleCrypto(key)
-      msg = simpleCrypto.encrypt(msg)
+    if (key.length > 0 && message.length > 0) {
+      message = simpleCrypto.encrypt(message)
     }
 
-    //Update the button text based on payload length
-    this.payloadCountMax = Math.ceil(msg.length / 32)
-    if (this.payloadCountMax === 0) {
-      this.payloadCountMax = 1
-    }
-
-    if (msg !== "") {
+    //Valid message
+    if (message.length > 0) {
+      payload = new TextEncoder('utf-8').encode(message)
       this.setState({ disabled: false })
+
+      //Divide payload into several 32 byte payloads and calculate parts needed
+      this.payloadChunks = this.chunkArray(payload, 32)
+      this.payloadCountMax = this.payloadChunks.length
+      if (this.payloadCountMax === 0) {
+        this.payloadCountMax = 1
+      }
     }
     else {
-      this.setState({ disabled: true })
+      this.setState({
+        disabled: true,
+      })
       this.payloadCountMax = 1
     }
 
@@ -130,24 +170,29 @@ class Messenger extends React.Component {
     var files = evt.dataTransfer.files; // fileList object
 
     var reader = new FileReader();
+
     reader.onload = function(theFile) {
-      const dataString = reader.result
-      if (dataString !== "") {
+      const data = reader.result
+      var uint8 = new Uint8Array(data);
+      if (uint8.length > 0) {
         scope.setState({
-          message: dataString,
+          payload: uint8,
           disabled: false
+        }, () => {
+          //After set state if finished
+          scope.handleMessageChange("Loaded File: "+files[0].name)
         })
-        scope.handleMessageChange(dataString)
       }
     }
 
     //Read file (only if below max file size)
     const size = files[0].size
     if (size <= this.maxFileSize) {
-      reader.readAsBinaryString(files[0])
+      //reader.readAsBinaryString(files[0])
+      reader.readAsArrayBuffer(files[0])
     }
     else {
-      alert("Max file size allowed: 5 KB")
+      window.alert("Max file size allowed: 100 KB")
     }
   }
 
@@ -165,12 +210,29 @@ class Messenger extends React.Component {
   }
 
   //Download a file from given filename and byteArray
-  downloadByteArray(fileName, bytes) {
-    //Try get the file type from magic numbers
-    const hex = bytes.join('').toUpperCase()
-    let type = this.getMimetype(hex)
+  downloadByteArray() {
+    var data = this.state.receivedData
 
-    var blob = new Blob([bytes], {type: type})
+    //Decode base64 string to uint8array if received message was a file
+    if (this.state.messageType === "file") {
+      let dataString = new TextDecoder('utf-8').decode(data)
+      data = this.fromBase64(dataString)
+    }
+
+    //Try get the file type from magic numbers
+    let bytes = []
+    data.forEach((byte) => {
+      bytes.push(byte.toString(16))
+    })
+    const hex = bytes.join('').toUpperCase()
+    let ext = this.getMimetypeExt(hex.substring(0,8))
+    let fileName = "message."+ext
+
+    //Back to base64 encoding for file download
+    var base64 = "QmFkIGRhdGEuIFRyeSB0byBjaGFuZ2UgdGhlIHJlY2VpdmUgZm9ybWF0Lg=="
+    if (data.length > 0) {
+      base64 = this.toBase64(data)
+    }
 
     var downloadLink = document.createElement("a")
     downloadLink.download = fileName
@@ -179,13 +241,15 @@ class Messenger extends React.Component {
     {
         // Chrome allows the link to be clicked
         // without actually adding it to the DOM.
-        downloadLink.href = window.webkitURL.createObjectURL(blob)
+        //downloadLink.href = window.webkitURL.createObjectURL(blob)
+        downloadLink.href = 'data:application/octet-stream;base64,' + base64
     }
     else
     {
         // Firefox requires the link to be added to the DOM
         // before it can be clicked.
-        downloadLink.href = window.URL.createObjectURL(blob)
+        //downloadLink.href = window.URL.createObjectURL(blob)
+        downloadLink.href = 'data:application/octet-stream;base64,' + base64
         downloadLink.onclick = this.destroyClickedElement
         downloadLink.style.display = "none"
         document.body.appendChild(downloadLink)
@@ -195,21 +259,21 @@ class Messenger extends React.Component {
   }
 
   //Guess file type
-  getMimetype(signature) {
+  getMimetypeExt(signature) {
     switch (signature) {
       case '89504E47':
-          return 'image/png'
+          return 'png'
       case '47494638':
-          return 'image/gif'
+          return 'gif'
       case '25504446':
-          return 'application/pdf'
+          return 'pdf'
       case 'FFD8FFDB':
       case 'FFD8FFE0':
-          return 'image/jpeg'
+          return 'jpg'
       case '504B0304':
-          return 'application/zip'
+          return 'zip'
       default:
-          return 'text/plain'
+          return ''
     }
   }
 
@@ -255,23 +319,13 @@ class Messenger extends React.Component {
           sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
         })
         if (data.length > 0) {
-          var result = ""
-
-          result = new TextDecoder('utf-8').decode(data)
-
-          if (this.shouldReset) {
-            //Reset textarea
-            this.setState({
-              received: "",
-              receivedData: new Uint8Array([]),
-            })
-            this.shouldReset = false
-          }
+          let combinedData = this.concatTypedArray(Uint8Array,this.state.receivedData,data)
+          let result = new TextDecoder('utf-8').decode(data)
+          console.log("Combined: "+combinedData)
 
           this.setState({
-            receivedData: this.concatTypedArray(Uint8Array,this.state.receivedData,data),
+            receivedData: combinedData,
             received: this.state.received+result,
-            disabled: false,
           })
 
           //Enable decrypt button
@@ -285,11 +339,7 @@ class Messenger extends React.Component {
           this.setState({ downloadDisabled: false })
         }
         else {
-          this.setState({
-            received: "Missed data. Try increase the volume.",
-            disabled: false
-          })
-          this.shouldReset = true
+          alert("Missed data. Try increase the volume.")
         }
       }
     }).then(sdk => {
@@ -320,6 +370,7 @@ class Messenger extends React.Component {
               <br />
             </div>
 
+            {/* MESSAGE INPUT */}
             <div className="MsgBoxContainer">
               <input className="MsgBox"
                 type="text"
@@ -327,10 +378,22 @@ class Messenger extends React.Component {
                 placeholder="Enter message"
                 value={this.state.message}
                 onChange={(event) => {
-                  this.handleMessageChange(event.target.value)
+                  if (event.target.value.length === 0) {
+                    //Reset file payload before calculating the rest
+                    this.setState({
+                      payload: new Uint8Array([])
+                    }, () => {
+                      //After set state if finished
+                      this.handleMessageChange("")
+                    })
+                  }
+                  else {
+                    this.handleMessageChange(event.target.value)
+                  }
                 }}
               />
 
+              {/* FILE DROPZONE */}
               <div
                 id="drop_zone"
                 onDragOver={this.handleDragOver}
@@ -338,39 +401,25 @@ class Messenger extends React.Component {
                 ...or drop a file here
               </div>
 
+              {/* ENCRYPTION INPUT */}
               <input className="MsgBox"
                 type="text"
                 id="psw_input"
                 placeholder="Encryption key (optional)"
                 onChange={(event) => {
-                  var msg = document.getElementById('message_input').value
-                  this.handleMessageChange(msg)
+                  this.handleMessageChange(this.state.message)
                 }}
               />
             </div>
 
+            {/* SEND BUTTON */}
             {this.state.disabled ? (
               <button id="sendButton" className="SendButton" disabled>{this.state.sendButtonTxt}</button>
               ) : (
               <button id="sendButton" className="SendButton"
                 onClick={() => {
                   if (this.payloadCount === 0 || this.payloadCount >= this.payloadChunks.length) {
-                    var message = this.state.message
-                    const key = document.getElementById('psw_input').value
 
-                    var payload = new Uint8Array(["Unknown"])
-                    //Encrypt message if key is given
-                    if (key !== "" && message !== "") {
-                      var simpleCrypto = new SimpleCrypto(key)
-                      message = simpleCrypto.encrypt(message)
-                    }
-                    if (message !== "") {
-                      payload = new TextEncoder('utf-8').encode(message)
-                    }
-
-                    //Divide payload into several 32 byte payloads
-                    this.payloadChunks = this.chunkArray(payload, 32)
-                    this.payloadCountMax = this.payloadChunks.length
 
                     this.sdk.send(this.payloadChunks[0])
                   }
@@ -382,10 +431,12 @@ class Messenger extends React.Component {
               )
             }
 
+            {/* RESULT AREA */}
             <div className="received-message">
               {<textarea id="resultTxt" className="Result" rows="10" value={this.state.received} placeholder="Waiting on message..." readOnly></textarea>}
             </div>
 
+            {/* DECRYPTION BUTTON */}
             <div>
               {this.state.decryptDisabled ? (
                 <button id="decryptButton" className="DecryptButton" disabled>DECRYPT</button>
@@ -393,17 +444,37 @@ class Messenger extends React.Component {
                   <button id="decryptButton" className="DecryptButton"
                     onClick={() => {
                         //Decrypt message
-                        var result = document.getElementById("resultTxt").value
+                        //var result = document.getElementById("resultTxt").value
                         const key = document.getElementById('psw_input')
-                        var simpleCrypto = new SimpleCrypto(key.value)
-                        var decrypted = simpleCrypto.decrypt(result)
-                        document.getElementById("resultTxt").value = decrypted
+                        const result = new TextDecoder('utf-8').decode(this.state.receivedData)
+                        console.log("received: "+result)
+
+                        var decrypted = ""
+                        try {
+                          var simpleCrypto = new SimpleCrypto(key.value)
+                          decrypted = simpleCrypto.decrypt(result)
+                          console.log("decrypted: "+decrypted)
+                        }
+                        catch(error) {
+                          console.error("Could not decrypt data.")
+                        }
+
+                        if (decrypted.length === 0) {
+                          decrypted = "Failed to decrypt"
+                        }
+
+                        //Update the original data (if downloadings)
+                        this.setState({
+                          receivedData: new TextEncoder('utf-8').encode(decrypted),
+                          received: decrypted
+                        })
                     }
                   }
                 >DECRYPT</button>
                 )
               }
 
+              {/* RESET BUTTON */}
               <button id="resetButton" className="ResetButton"
                 onClick={() => {
                   //Reset textarea
@@ -411,6 +482,7 @@ class Messenger extends React.Component {
                     received: "",
                     receivedData: new Uint8Array([]),
                     message: "",
+                    payload: new Uint8Array([]),
                     sendButtonTxt: "SEND 1/1",
                     decryptDisabled: true,
                     downloadDisabled: true,
@@ -422,13 +494,14 @@ class Messenger extends React.Component {
                 }
               >RESET</button>
 
+              {/* DOWNLOAD BUTTON */}
               {this.state.downloadDisabled ? (
                 <button id="downloadButton" className="DownloadButton" disabled>DOWNLOAD</button>
                 ) : (
                   <button id="downloadButton" className="DownloadButton"
                     onClick={() => {
                       //Download the bytes shown in text textarea
-                      this.downloadByteArray("test.txt", this.state.receivedData)
+                      this.downloadByteArray()
                     }
                   }
                 >DOWNLOAD</button>
