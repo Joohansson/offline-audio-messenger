@@ -1,6 +1,6 @@
 {
   "files": {
-    "main.css": "./static/css/main.614a5285.chunk.css",
+    "main.css": "./static/css/main.0837612c.chunk.css",
     "main.js": "./static/js/main.c1dd1a82.chunk.js",
     "main.js.map": "./static/js/main.c1dd1a82.chunk.js.map",
     "runtime~main.js": "./static/js/runtime~main.d653cc00.js",
@@ -8,8 +8,9 @@
     "static/js/2.2b099c9c.chunk.js": "./static/js/2.2b099c9c.chunk.js",
     "static/js/2.2b099c9c.chunk.js.map": "./static/js/2.2b099c9c.chunk.js.map",
     "index.html": "./index.html",
-    "precache-manifest.6f7245be6e5b7b648adc3d6387abb23c.js": "./precache-manifest.6f7245be6e5b7b648adc3d6387abb23c.js",
+    "precache-manifest.992366cbf761ff7fbc0955f7cdf38fca.js": "./precache-manifest.992366cbf761ff7fbc0955f7cdf38fca.js",
     "service-worker.js": "./service-worker.js",
-    "static/css/main.614a5285.chunk.css.map": "./static/css/main.614a5285.chunk.css.map"
+    "static/css/main.0837612c.chunk.css.map": "./static/css/main.0837612c.chunk.css.map",
+    "static/media/Messenger.css": "./static/media/NotoSans-Regular.fbe46f26.woff"
   }
 }
