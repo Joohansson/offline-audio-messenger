@@ -3,6 +3,7 @@ import React from 'react';
 import { Chirp } from 'chirpsdk'
 import SimpleCrypto from "simple-crypto-js";
 import './Messenger.css';
+import ReactGA from 'react-ga'
 
 class Messenger extends React.Component {
   constructor(props) {
@@ -42,6 +43,9 @@ class Messenger extends React.Component {
 
   componentDidMount() {
     //Init stuff here
+    ReactGA.initialize('UA-113887773-6');
+    ReactGA.pageview('/homepage');
+
     if (!('WebAssembly' in window)) {
       window.alert('WebAssembly is not supported in this browser')
     }
