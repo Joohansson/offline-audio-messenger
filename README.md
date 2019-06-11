@@ -22,10 +22,11 @@ Disconnect your Internet connection, extract the zip and open index.html in an s
 
 ## How to use
 
-1. Run the site on two PCs (or mobiles). Speaker and mic need to be configured (or headset). You can even run two tabs on same machine for testing.
-2. Type a message or drop a file. Limited to 100 KB for practical reasons.
-3. If the message is split in several parts you will need to hit the send button until the whole payload is completed. The receiving end will append the message and you can encrypt it when finished (using the same encryption key).
-4. The result can be copied or downloaded.
+1. Run the site on two PCs (or mobiles). Speaker and mic needs to be configured (or headset). You can even run two tabs on same machine for testing, or record with your phone as intermediate.
+2. Type a message or drop a file. Limited to 1 MB for practical reasons. Files are sent as base64 encoded.
+3. If the message is split in several parts you will need to hit the send button until the whole payload is completed, or use auto send. The receiving end will append the message and you can encrypt it when finished (using the same encryption key).
+4. The result can be copied or downloaded (if decrypted first).
+5. Files will be encoded and sent in base64 format. Text files (or base64 strings) are decoded upon downloading.
 
 Not the fastest method in the world with a transfer speed of 7.14 bytes/second. An 8GB HD movie would take 35 years!
 

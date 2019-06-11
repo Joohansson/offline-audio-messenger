@@ -1,3 +1,13 @@
+@font-face {
+  font-family: "NotoSans Regular";
+    src:
+    url("fonts/NotoSans-Regular.woff"), /* Pretty Modern Browsers */
+    url("fonts/NotoSans-Regular.woff2"), /* Super Modern Browsers */
+    url("fonts/NotoSans-Regular.eot"),
+    url("fonts/NotoSans-Regular.ttf") format("truetype"), /* Safari, Android, iOS */
+    url("fonts/NotoSans-Regular.eot?#iefix") format("embedded-opentype"); /* IE6-IE8 */
+}
+
 .App {
   text-align: center;
   background-color: #282c34;
@@ -6,15 +16,22 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 1.5vmin);
+  font-size: 20px;
   color: white;
+  font-family: 'NotoSans Regular', Fallback, sans-serif;
+}
+
+.Intro {
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 16px;
 }
 
 .StartButton {
   margin-top: 5px;
   width: 200px;
   height: 40px;
-  font-size: 0.7em;
+  font-size: 1em;
   padding: 2px 5px;
 }
 
@@ -29,10 +46,19 @@
 
 .SendButton {
   margin-top: 5px;
-  width: 150px;
+  width: 155px;
   height: 30px;
   font-size: 0.6em;
   padding: 2px 5px;
+}
+
+.RetryButton {
+  margin-top: 5px;
+  width: 155px;
+  height: 30px;
+  font-size: 0.6em;
+  padding: 2px 5px;
+  margin-left: 102px;
 }
 
 .DecryptButton {
@@ -80,16 +106,36 @@
 .collapse-content ol {
   text-align: left;
   line-height: 1.2em;
-  margin-left: 30px;
+  margin-left: 40px;
 }
 
 .MsgBox {
   margin-top: 5px;
   font-size: 0.7em;
-  width: 400px;
+  width: 398px;
   height: 24px;
   padding-left: 5px;
   padding-right: 5px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+label {
+  display: block;
+  padding-left: 15px;
+  text-indent: -15px;
+  font-size: 0.6em;
+  margin-top: 5px;
+}
+input {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  margin:0 0 0 5px;
+  vertical-align: bottom;
+  position: relative;
+  top: -1px;
+  *overflow: hidden;
 }
 
 .Result {
@@ -126,9 +172,10 @@ a:hover {
 
 #drop_zone {
   border: 2px dashed #bbb;
-  padding: 5px;
+  padding-top: 5px;
+  padding-bottom: 5px;
   color: #bbb;
-  width: 400px;
+  width: 408px;
   margin-top: 5px;
   margin-left: auto;
   margin-right: auto;

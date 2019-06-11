@@ -5,7 +5,6 @@ import SimpleCrypto from "simple-crypto-js";
 import './Messenger.css';
 
 class Messenger extends React.Component {
-
   constructor(props) {
     super(props)
     this.sdk = null
@@ -19,17 +18,21 @@ class Messenger extends React.Component {
       message: "", //messeage to be sent
       payload: new Uint8Array([]),
       sendButtonTxt: "SEND 1/1", //label of send button
-      messageType: "file" //incoming message type
+      nextPart: false, //if scheduler is allowed to send next part
+      autoSend: true, //if send button is automatic
     }
     this.payloadChunks = [] //send payload divided into parts
     this.payloadCount = 0 //current payload
     this.payloadCountMax = 1 //maxium parts to be sent
-    this.maxFileSize = 100000 //max bytes to be dropped
+    this.maxFileSize = 1000000 //max bytes to be dropped
+    this.decryptedResult = new Uint8Array([]) //for downloads
 
     //Bindings
     this.handleFileSelect = this.handleFileSelect.bind(this)
     this.handleMessageChange = this.handleMessageChange.bind(this)
     this.downloadByteArray = this.downloadByteArray.bind(this)
+    this.tick = this.tick.bind(this)
+    this.handleAutoCheck = this.handleAutoCheck.bind(this)
 
     this.concatTypedArray = require('concat-typed-array');
 
@@ -39,7 +42,33 @@ class Messenger extends React.Component {
 
   componentDidMount() {
     //Init stuff here
-    if (!('WebAssembly' in window)) window.alert('WebAssembly is not supported in this browser')
+    if (!('WebAssembly' in window)) {
+      window.alert('WebAssembly is not supported in this browser')
+    }
+    //Start timer for automatic sending
+    else {
+      this.timerID = setInterval(
+      () => this.tick(),
+        100
+      )
+    }
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timerID);
+  }
+
+  tick() {
+    if (this.state.nextPart) {
+      this.setState({
+        nextPart: false, //disable state to disallow double sending
+      }, () => {
+        //After set state if finished, send next part
+        if (this.payloadCount !== 0 && this.payloadCount < this.payloadChunks.length && this.state.autoSend) {
+          this.sdk.send(this.payloadChunks[this.payloadCount])
+        }
+      })
+    }
   }
 
   /**
@@ -83,7 +112,8 @@ class Messenger extends React.Component {
     return true
   }
 
-  toBase64(u8) {
+  /*
+  uint8ToBase64(u8) {
     var base64 = ""
     try {
       base64 = btoa(String.fromCharCode.apply(null, u8))
@@ -94,6 +124,21 @@ class Messenger extends React.Component {
     }
     return base64
   }
+  */
+
+  uint8ToBase64(u8Arr){
+    var CHUNK_SIZE = 0x8000; //arbitrary number
+    var index = 0;
+    var length = u8Arr.length;
+    var result = '';
+    var slice;
+    while (index < length) {
+      slice = u8Arr.subarray(index, Math.min(index + CHUNK_SIZE, length));
+      result += String.fromCharCode.apply(null, slice);
+      index += CHUNK_SIZE;
+    }
+    return btoa(result);
+  }
 
   fromBase64(str) {
     var uint8
@@ -101,10 +146,10 @@ class Messenger extends React.Component {
       uint8 = atob(str).split('').map(function (c) { return c.charCodeAt(0); })
     }
     catch(error) {
-      console.error("Bad data. Check received format.")
+      //console.error("Bad data. Check received format.")
       return new Uint8Array([])
     }
-    return uint8
+    return new Uint8Array(uint8)
   }
 
   handleMessageChange(message) {
@@ -112,7 +157,6 @@ class Messenger extends React.Component {
       this.setState({message: message})
     }
 
-    console.log("Handle: "+message)
     const key = document.getElementById('psw_input').value
     const result = document.getElementById('resultTxt').value
 
@@ -129,7 +173,7 @@ class Messenger extends React.Component {
     //If file imported, convert to base64 because UTF8 is not enough for non-text files
     if (this.state.payload.length > 0) {
       payload = this.state.payload
-      message = this.toBase64(payload)
+      message = this.uint8ToBase64(payload)
     }
     //Encrypt message if key is given
     if (key.length > 0 && message.length > 0) {
@@ -192,7 +236,7 @@ class Messenger extends React.Component {
       reader.readAsArrayBuffer(files[0])
     }
     else {
-      window.alert("Max file size allowed: 100 KB")
+      window.alert("Max file size allowed: 1 MB")
     }
   }
 
@@ -209,14 +253,21 @@ class Messenger extends React.Component {
     document.body.removeChild(event.target);
   }
 
+  handleAutoCheck(e) {
+    this.setState({
+      autoSend: !this.state.autoSend,
+    });
+  }
+
   //Download a file from given filename and byteArray
   downloadByteArray() {
-    var data = this.state.receivedData
+    var data = this.decryptedResult
 
-    //Decode base64 string to uint8array if received message was a file
-    if (this.state.messageType === "file") {
-      let dataString = new TextDecoder('utf-8').decode(data)
-      data = this.fromBase64(dataString)
+    //Try decode base64 string to uint8array (if it fails, then it was not base64 ie not a file but normal text)
+    let dataString = new TextDecoder('utf-8').decode(data)
+    let dataTemp = this.fromBase64(dataString)
+    if (dataTemp.length > 0) {
+      data = dataTemp
     }
 
     //Try get the file type from magic numbers
@@ -231,7 +282,7 @@ class Messenger extends React.Component {
     //Back to base64 encoding for file download
     var base64 = "QmFkIGRhdGEuIFRyeSB0byBjaGFuZ2UgdGhlIHJlY2VpdmUgZm9ybWF0Lg=="
     if (data.length > 0) {
-      base64 = this.toBase64(data)
+      base64 = this.uint8ToBase64(data)
     }
 
     var downloadLink = document.createElement("a")
@@ -270,8 +321,25 @@ class Messenger extends React.Component {
       case 'FFD8FFDB':
       case 'FFD8FFE0':
           return 'jpg'
+      case '49492A00':
+          return 'tif'
+      case '4D4D002A':
+          return 'tif'
       case '504B0304':
           return 'zip'
+      case '52617221':
+          return 'rar'
+      case '52494646':
+          return 'wav'
+      case '504D4F43':
+          return 'dat'
+      case '75737461':
+          return 'tar'
+      case '377ABCAF':
+          return '7z'
+      case '000001BA':
+      case '000001B3':
+          return 'mpg'
       default:
           return ''
     }
@@ -285,7 +353,7 @@ class Messenger extends React.Component {
         console.log("Sending")
         this.setState({
           disabled: true,
-          sendButtonTxt: "Sending..."
+          sendButtonTxt: "Sending "+(this.payloadCount+1)+"/"+this.payloadCountMax+"..."
         })
       },
       onSent: data => {
@@ -295,14 +363,22 @@ class Messenger extends React.Component {
         if (this.payloadCount >= this.payloadChunks.length) {
           this.payloadCount = 0
         }
-        else {
-          //TODO: automatically send again (Breaks the event listeners for some reason)
-          //this.sendPayload(this.payloadChunks[this.payloadCount]) //example 1
-          //document.getElementById("sendButton").click(); //example 2
-        }
+
         this.setState({
           disabled: false,
           sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
+        })
+
+        this.setState({
+          disabled: false,
+          sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
+        }, () => {
+          //After set state if finished
+          if (this.payloadCount < this.payloadChunks.length) {
+            this.setState({
+              nextPart: true
+            })
+          }
         })
       },
       onReceiving: () => {
@@ -321,12 +397,13 @@ class Messenger extends React.Component {
         if (data.length > 0) {
           let combinedData = this.concatTypedArray(Uint8Array,this.state.receivedData,data)
           let result = new TextDecoder('utf-8').decode(data)
-          console.log("Combined: "+combinedData)
 
           this.setState({
             receivedData: combinedData,
             received: this.state.received+result,
           })
+
+          this.decryptedResult = combinedData //for downloads
 
           //Enable decrypt button
           const key = document.getElementById('psw_input').value
@@ -361,11 +438,11 @@ class Messenger extends React.Component {
             <div className="collapse-content">
                 <strong>No message data is shared but feel free to download site and use offline.<br /></strong>
                 <ol>
-                    <li>Send message from one device to another using speaker and microphone.</li>
-                    <li>If they are far apart you can use a recorder for example a phone app.</li>
+                    <li>Message/file is sent from one device to another using speaker and microphone.</li>
                     <li>Use optional encryption to avoid anyone to intercept the audio.</li>
-                    <li>Each (non encrypted) part is 32 chars and split automatically.</li>
-                    <li>Use same encryption key on the receiving end.</li>
+                    <li>If they are far apart you can use a recorder for example a phone app.</li>
+                    <li>Each part is 32 chars and split automatically. Encryption is longer.</li>
+                    <li>Decryption needs to be done before downloading.</li>
                 </ol>
               <br />
             </div>
@@ -412,6 +489,19 @@ class Messenger extends React.Component {
               />
             </div>
 
+            {/* AUTO TICKER */}
+            <div>
+              <label className="AutoSend">
+                Auto Send
+                <input type="checkbox"
+                  checked={this.state.autoSend}
+                  onChange={(event) => {
+                    this.handleAutoCheck()
+                  }}
+                />
+               </label>
+            </div>
+
             {/* SEND BUTTON */}
             {this.state.disabled ? (
               <button id="sendButton" className="SendButton" disabled>{this.state.sendButtonTxt}</button>
@@ -419,8 +509,6 @@ class Messenger extends React.Component {
               <button id="sendButton" className="SendButton"
                 onClick={() => {
                   if (this.payloadCount === 0 || this.payloadCount >= this.payloadChunks.length) {
-
-
                     this.sdk.send(this.payloadChunks[0])
                   }
                   else {
@@ -428,6 +516,23 @@ class Messenger extends React.Component {
                   }
                 }}
               >{this.state.sendButtonTxt}</button>
+              )
+            }
+
+            {/* RETRY BUTTON */}
+            {this.state.disabled ? (
+              <button id="retryButton" className="RetryButton" disabled>RETRY</button>
+              ) : (
+              <button id="retryButton" className="RetryButton"
+                onClick={() => {
+                  if (this.payloadCount > 0) {
+                    this.payloadCount--
+                    this.setState({
+                      sendButtonTxt: "SEND "+(this.payloadCount+1)+"/"+this.payloadCountMax
+                    })
+                  }
+                }}
+              >RETRY</button>
               )
             }
 
@@ -447,13 +552,11 @@ class Messenger extends React.Component {
                         //var result = document.getElementById("resultTxt").value
                         const key = document.getElementById('psw_input')
                         const result = new TextDecoder('utf-8').decode(this.state.receivedData)
-                        console.log("received: "+result)
 
                         var decrypted = ""
                         try {
                           var simpleCrypto = new SimpleCrypto(key.value)
                           decrypted = simpleCrypto.decrypt(result)
-                          console.log("decrypted: "+decrypted)
                         }
                         catch(error) {
                           console.error("Could not decrypt data.")
@@ -465,9 +568,9 @@ class Messenger extends React.Component {
 
                         //Update the original data (if downloadings)
                         this.setState({
-                          receivedData: new TextEncoder('utf-8').encode(decrypted),
                           received: decrypted
                         })
+                        this.decryptedResult = new TextEncoder('utf-8').encode(decrypted)
                     }
                   }
                 >DECRYPT</button>
@@ -510,11 +613,15 @@ class Messenger extends React.Component {
             </div>
           </div>
           ) : (
-            <button className="StartButton"
-              onClick={() => {
-                this.startSDK()
-              }}
-            >START</button>
+            <div className="Intro">
+              <p>Send a message or file using encrypted audio. Speaker and Mic required.</p>
+
+              <button className="StartButton"
+                onClick={() => {
+                  this.startSDK()
+                }}
+              >START</button>
+            </div>
           )
         }
         <div className = "extra"></div>
