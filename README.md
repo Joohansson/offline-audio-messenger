@@ -1,6 +1,8 @@
 
 # Offline Audio Messenger
 
+### This app has been discontinued and is now part of [KeyTools](https://github.com/Joohansson/keytools)
+
 Send messages or files between devices using an encrypted audio transfer.
 For example when using an air-gapped (offline) computer and need to transfer keys for offline signing of a cryptocurrency transaction. The message does not touch the Internet.
 
